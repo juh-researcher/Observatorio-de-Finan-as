@@ -1,0 +1,342 @@
+---
+title: "Algotrading part 2"
+output: html_document
+---
+```
+Inteligencia artificial pra trading
+
+1. Regressão logistica
+1.1. LOGIT
+```
+
+```{r setup, include=FALSE}
+#Pacotes usados
+if(!require(stats)) install.packages("stats")
+if(!require(rattle)) install.packages("rattle")
+if(!require(caret)) install.packages("caret")
+if(!require(ROCR)) install.packages("ROCR")
+if(!require(party)) install.packages("party")
+if(!require(mlbench)) install.packages("mlbench")
+if(!require(quantmod)) install.packages("quantmod")
+if(!require(e1071)) install.packages("e1071")
+if(!require(data.table)) install.packages("data.table")
+
+library(stats)
+library(rattle)
+library(caret)
+library(ROCR)
+library(party)
+library(mlbench)
+library(quantmod)
+library(e1071)
+library(data.table)
+```
+
+Para a criação de uma boa analise é preciso haver um tratamento dos dados.
+- Criação de indicadores
+- Criação de dados binarios com esses indicadores
+
+Papel analisado - teste : Azul, transporte aereo
+
+```{r}
+startdate<-as.Date("2017-04-11")
+enddate<-as.Date("2020-02-25")
+getSymbols("AZUL4.SA", from=startdate, to=enddate)
+
+```
+```{r}
+AZUL4<-data.frame(AZUL4.SA)
+AZUL4<-na.omit(AZUL4)
+```
+
+Criaçao de Indicadores - Pesquisar depois
+RSI - Indice de força relativa de um ativo
+      Definicao: A força de tendencia e probabilidade de reversão
+      
+RSL - naosei
+
+CCI - Commodity channel index (Mas pode usar em outros mercados sim)
+      Definicao: Apesar de o propósito inicial do indicador ser identificar as novas tendências, hoje ele é amplamente utilizado para medir o nível atual dos preços em relação ao seu valor médio.
+      
+MACD - Em Inglês, MACD significa "Moving Average Convergence Divergence", que significa, em Português, Convergência e Divergência de Médias Móveis.
+      Definicao: O MACD é um indicador técnico, resultante da diferença entre duas médias móveis exponenciais (MME) de diferentes períodos. Os números de 12 e 26 períodos para médias móveis são os períodos usados com mais frequência, mas falaremos nisso um pouco mais à frente, quando falarmos da melhor configuração MACD.
+
+
+```{r}
+AZUL4$RSI <- RSI(AZUL4$AZUL4.SA.Close,14,"SMA")
+AZUL4$RSL <- (SMA(AZUL4$AZUL4.SA.Close,8)/AZUL4$AZUL4.SA.Close)-1
+AZUL4$CCI <- CCI(AZUL4$AZUL4.SA.Close,14)
+AZUL4$MACD <- MACD(AZUL4$AZUL4.SA.Close,12,26,9,"SMA") 
+AZUL4$MACD <- AZUL4$MACD[,1] - AZUL4$MACD[,2] 
+AZUL4$Bbands <- BBands(AZUL4$AZUL4.SA.Close,20,"SMA",2)[,4]
+```
+
+Criando Alvo
+```{r}
+AZUL4$Close_Shift <- AZUL4$AZUL4.SA.Close
+AZUL4['Close_Shift'] <- c(NA, head(AZUL4['Close_Shift'], dim(AZUL4)[1] - 1)[[1]])
+AZUL4$Return <- (AZUL4$AZUL4.SA.Close/AZUL4$Close_Shift-1)*100
+
+desloca <- function(x, n){
+  c(x[-(seq(n))], rep(NA, n))
+}
+
+AZUL4$Alvo1 <- desloca(AZUL4$Return, 1)
+AZUL4$Alvo1 <- ifelse(AZUL4$Alvo1 > 0 ,1,0)
+
+```
+
+Criação de Variaveis - Interpretação classica da analise tecnica
+RSIH - RSI Alto - se acima de 70% vende
+RSIL - RSI Baixo - se abaixo de 30% compra
+CCIH - CCI Alto - O cruzamento da linha zero de cima para baixo é uma confirmação para a venda.
+CCIH - CCI Baixo - O cruzamento da linha zero de baixo para cima é uma confirmação para a compra.
+MACDH - MACD alto - COMPRA,quando o histograma passa de um valor negativo para um valor positivo, para comprar no mercado.
+MACDL - MACD baixo - VENDA,quando o histograma passa de um valor positivo para um valor negativo, para vender no mercado.
+
+```{r}
+AZUL4$RSIH <- ifelse(AZUL4$RSI> 70,1,0)
+AZUL4$RSIL <- ifelse(AZUL4$RSI< 30,1,0)
+AZUL4$CCIH <- ifelse(AZUL4$CCI > 120,1,0)
+AZUL4$CCIL <- ifelse(AZUL4$CCI < -120,1,0)
+AZUL4$MACDH <- ifelse(AZUL4$MACD > 0.5,1,0)
+AZUL4$MACDL <- ifelse(AZUL4$MACD < -0.5,1,0)
+```
+```{r}
+AZUL4 <- na.omit(AZUL4)
+```
+
+```
+Criação do modelo :o
+```
+```{r}
+#Divisão dos dados
+
+#Treinamento -1/6/2017 a 28/6/2019 - que sera dividido em treino e teste 
+treinamento <- AZUL4[1:517,]
+
+#Validacao - 1/7/2019 a 20/2/2020
+validacao <- AZUL4[518:679,]
+
+set.seed(42)
+inTrain <- createDataPartition(y=treinamento$Alvo1,p = 0.7, list=FALSE)
+training <- treinamento[inTrain,]
+testing <- treinamento[-inTrain,]
+dim(training); dim(testing)
+```
+É usado a base de dados de training pois é criado o teste:
+```{r}
+modelo1 <- glm(Alvo1 ~ RSL + Bbands + MACDH + MACDL + CCIH + CCIL,
+                 data = training, family=binomial(link='logit'))
+
+summary(modelo1)
+```
+RSL, CCIH e CCIL ñ deu significantes.
+
+```
+Avaliação do modelo
+```
+```{r}
+#AUC
+probabilidades <- predict(modelo1,type='response',testing) 
+modelo1_data <- prediction(probabilidades, testing$Alvo1)
+plot(performance(modelo1_data, "tpr", "fpr"), col = "red", main = "Area Under the Curve")
+abline(0,1, lty = 8, col = "grey")
+
+auc_rdock <- performance(modelo1_data, "auc")
+auc.area_rdock <- slot(auc_rdock, "y.values")[[1]]
+auc.area_rdock
+```
+Interpretação do AUC: Esse modelo ñ é o ideal para previsão para o caso, o certo era termos uma area maior acima da linhaa de 45 graus.
+Area acima da curva muito baixo= previsão baixa.
+
+```{r}
+gini_fin_test <- 2*auc.area_rdock-1
+gini_fin_test #Ruim
+```
+
+```{r}
+#Score, faixas onde eu sou mais preditivo com o modelo 
+classe <- cut(probabilidades, quantile(probabilidades, seq(0,1,0.125)))
+table(classe, testing$Alvo1)
+```
+Para venda do papel eu escolho as faixas q eu tenho 0 > 1 com probabilidade maior - 8° faixa
+Para compra do papel escolho a faixa q tenho 1 > 0 com maior probabilidade - 4° faixa
+
+```
+Validação
+```
+```{r}
+probabilidades_val <- predict(modelo1,type='response',validacao) 
+modelo1_data_val <- prediction(probabilidades_val, validacao$Alvo1)
+plot(performance(modelo1_data_val, "tpr", "fpr"), col = "red", main = "Area Under the Curve")
+abline(0,1, lty = 8, col = "grey")
+
+#AUC
+auc_rdock_val <- performance(modelo1_data_val, "auc")
+auc.area_rdock_val <- slot(auc_rdock_val, "y.values")[[1]]
+auc.area_rdock_val 
+
+#Gini
+gini_fin_test_val <- 2*auc.area_rdock_val-1
+gini_fin_test_val 
+```
+
+Foi pior ainda.
+
+```
+Analise da performace
+```
+```{r}
+#testing
+testing$predicao <- predict(modelo1,type='response',testing) 
+
+retorno_BH <- ifelse(testing$Return > 0,testing$Return, testing$Return)
+retorno_BH_acumulado <- cumsum(retorno_BH)
+
+retorno_modelo1 <- ifelse(testing$predicao > 0.528,testing$Return,
+                          ifelse(testing$predicao < 0.496, -1*testing$Return,0))
+retorno_modelo1_acumulado <- cumsum(retorno_modelo1)
+
+
+plot(retorno_modelo1_acumulado, type = "l", col = "black", lwd = 2,
+     main = "Base de Teste",
+     xlab = "1/6/2017 a 28/6/2019",
+     ylab = "Retorno em %",
+     ylim = c(-15,40))
+lines(retorno_BH_acumulado,col = "blue", lwd = 2)
+
+legend(1, 20, legend=c("RL","B&H"),
+       col=c("black","blue"), lty=1:1, cex=0.8)
+
+```
+
+```{r}
+#Validacao
+validacao$predicao <- predict(modelo1,type='response',validacao) 
+
+retorno_BH <- ifelse(validacao$Return > 0,validacao$Return, validacao$Return)
+retorno_BH_acumulado <- cumsum(retorno_BH)
+
+retorno_modelo1 <- ifelse(validacao$predicao > 0.528,validacao$Return,
+                          ifelse(validacao$predicao < 0.496, -1*validacao$Return,0))
+retorno_modelo1_acumulado <- cumsum(retorno_modelo1)
+
+#Grafico da Performance
+
+plot(retorno_modelo1_acumulado, type = "l", col = "green", lwd = 2,
+     main = "Base de Validacao",
+     xlab = "2018 - Fev/2019",
+     ylab = "Retorno em %",
+     ylim = c(-15,30))
+lines(retorno_BH_acumulado,col = "blue", lwd = 2)
+
+legend(1, 20, legend=c("RL","B&H"),
+       col=c("green","blue"), lty=1:1, cex=0.8)
+```
+```
+Interpretação: 
+A linha azul é estrategia de buy and hold e seu retorno.
+As linhas preta e verde foram feitas baseadas no modelo e tiveram pessimo desempenho de retorno.
+Preta para o treinamento.
+Verde para a validação do modelo, ou seja, se fosse pra vida real.
+```
+```
+1.2. PROBIT
+```
+```{r}
+modelo2 <- glm(Alvo1 ~ RSL + Bbands + MACDH + MACDL + CCIH + CCIL,
+                 data = training, family=binomial(link='probit'))
+
+summary(modelo2)
+```
+```{r}
+probabilidades2 <- predict(modelo2,type='response',testing) 
+modelo2_data <- prediction(probabilidades2, testing$Alvo1)
+plot(performance(modelo2_data, "tpr", "fpr"), col = "red", main = "Area Under the Curve")
+abline(0,1, lty = 8, col = "grey")
+
+auc_rdock2 <- performance(modelo2_data, "auc")
+auc.area_rdock2 <- slot(auc_rdock2, "y.values")[[1]]
+auc.area_rdock2
+```
+
+```{r}
+gini_fin_test2 <- 2*auc.area_rdock2-1
+gini_fin_test2
+```
+```{r}
+#Score
+classe2 <- cut(probabilidades2, quantile(probabilidades2, seq(0,1,0.125)))
+table(classe2, testing$Alvo1)
+```
+
+```{r}
+probabilidades_val2 <- predict(modelo2,type='response',validacao) 
+modelo2_data_val <- prediction(probabilidades_val2, validacao$Alvo1)
+plot(performance(modelo2_data_val, "tpr", "fpr"), col = "red", main = "Area Under the Curve")
+abline(0,1, lty = 8, col = "grey")
+
+#AUC
+auc_rdock_val2 <- performance(modelo2_data_val, "auc")
+auc.area_rdock_val2 <- slot(auc_rdock_val2, "y.values")[[1]]
+auc.area_rdock_val2 
+
+#Gini
+gini_fin_test_val2 <- 2*auc.area_rdock_val2-1
+gini_fin_test_val2
+```
+
+```
+Analise da Performace - Modelo 2
+```
+```{r}
+#testing
+testing$predicao2 <- predict(modelo2,type='response',testing) 
+
+retorno_BH2 <- ifelse(testing$Return > 0,testing$Return, testing$Return)
+retorno_BH_acumulado2 <- cumsum(retorno_BH2)
+
+retorno_modelo2 <- ifelse(testing$predicao2 > 0.528,testing$Return,
+                          ifelse(testing$predicao2 < 0.496, -1*testing$Return,0))
+retorno_modelo2_acumulado <- cumsum(retorno_modelo2)
+
+
+plot(retorno_modelo2_acumulado, type = "l", col = "black", lwd = 2,
+     main = "Base de Teste",
+     xlab = "2013 - 2017",
+     ylab = "Retorno em %",
+     ylim = c(-15,40))
+lines(retorno_BH_acumulado2,col = "blue", lwd = 2)
+
+legend(1, 20, legend=c("RL","B&H"),
+       col=c("black","blue"), lty=1:1, cex=0.8)
+```
+
+```{r}
+#Validacao
+validacao$predicao2 <- predict(modelo2,type='response',validacao) 
+
+retorno_BH2 <- ifelse(validacao$Return > 0,validacao$Return, validacao$Return)
+retorno_BH_acumulado2 <- cumsum(retorno_BH2)
+
+retorno_modelo2 <- ifelse(validacao$predicao2 > 0.528,validacao$Return,
+                          ifelse(validacao$predicao2 < 0.496, -1*validacao$Return,0))
+retorno_modelo2_acumulado <- cumsum(retorno_modelo2)
+
+#Grafico da Performance
+
+plot(retorno_modelo2_acumulado, type = "l", col = "green", lwd = 2,
+     main = "Base de Validacao",
+     xlab = "1/7/2019 a 20/2/2020",
+     ylab = "Retorno em %",
+     ylim = c(-15,30))
+lines(retorno_BH_acumulado2,col = "blue", lwd = 2)
+
+legend(1, 20, legend=c("RL","B&H"),
+       col=c("green","blue"), lty=1:1, cex=0.8)
+```
+
+```
+Avaliação final: Pouca diferença entre os modelos PROBIT E LOGIT
+Os dois apresentaram previsão ruim do modelo.

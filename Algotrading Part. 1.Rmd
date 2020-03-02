@@ -1,0 +1,444 @@
+---
+title: "Algotrading"
+runtime: shiny
+output: html_document
+---
+```
+Arquivo para analise de dados das empresas da bolsa - Projeto Algotrading
+
+
+1. Pacotes Usados
+```
+
+```{r setup, include=FALSE}
+if(!require(quantmod)) install.packages("quantmod")
+if(!require(PerformanceAnalytics)) install.packages("PerformanceAnalytics")
+if(!require(IntroCompFinR)) install.packages("IntroCompFinR", repos="http://R-Forge.R-project.org")
+if(!require(PortfolioAnalytics)) install.packages("PortfolioAnalytics")
+
+library(IntroCompFinR)
+library(quantmod)
+library(PerformanceAnalytics)
+library(PortfolioAnalytics)
+```
+
+Empresas selecionadas: 
+Petrobras - PETR3
+Telefonica - VIVT4
+Cosan - CSAN3
+Equatorial Energia - EQTL3
+BrMalls - BRML3
+
+```
+OBJETIVO 1: Avaliação de 1 ano 
+```
+
+```{r eruptions, echo=FALSE}
+empresas<-c("PETR3.SA", "VIVT4.SA", "CSAN3.SA", "EQTL3.SA", "BRML3.SA")
+startdate<-as.Date("2019-01-01")
+enddate<-as.Date("2019-12-31")
+```
+
+```{r}
+getSymbols(empresas, from = startdate, to = enddate)
+```
+
+```
+2. Coleta dos dados
+Uso do preço ajustado.
+```
+
+```{r tabsets, echo=FALSE}
+petr3<-na.omit(PETR3.SA$PETR3.SA.Adjusted)
+vivt4<-na.omit(VIVT4.SA$VIVT4.SA.Adjusted)
+csan3<-na.omit(CSAN3.SA$CSAN3.SA.Adjusted)
+eqtl3<-na.omit(EQTL3.SA$EQTL3.SA.Adjusted)
+brml3<-na.omit(BRML3.SA$BRML3.SA.Adjusted)
+```
+
+```{r}
+length(petr3)
+length(vivt4)
+length(csan3)
+length(eqtl3)
+length(brml3)
+```
+
+3. Coleta de estatisticas descritivas
+
+3.1. Media, mediana, maximo, minimo, 1 e 3 quartil
+
+```{r}
+#Das 5
+EstatisticasDesc<-summary(c(petr3,vivt4,csan3,eqtl3,brml3))
+EstatisticasDesc
+```
+
+```{r}
+#Medias
+MediaPetr3<-mean(petr3)
+MediaVivt4<-mean(vivt4)
+MediaCsan3<-mean(csan3)
+MediaEqtl3<-mean(eqtl3)
+MediaBrml3<-mean(brml3)
+
+graficomedia<-c(MediaPetr3,MediaVivt4,MediaCsan3,MediaEqtl3,MediaBrml3)
+barplot(graficomedia,col=c(5,2,3,4,7),legend=c("PETR3","VIVT4","CSAN3","EQTL3", "BRML3"),main="Media de Precos")
+
+MePrCarteira<-matrix(c(empresas,graficomedia), nrow = 5, ncol = 2)
+print(MePrCarteira)
+```
+
+```{r}
+#Maximos
+MaxPetr3<-max(petr3)
+MaxVivt4<-max(vivt4)
+MaxCsan3<-max(csan3)
+MaxEqtl3<-max(eqtl3)
+MaxBrml3<-max(brml3)
+
+graficomax<-c(MaxPetr3,MaxVivt4,MaxCsan3,MaxEqtl3,MaxBrml3)
+barplot(graficomax,col=c(5,2,3,4,7),legend=c("PETR3","VIVT4","CSAN3","EQTL3","BRML3"),main="Maxima dos Precos")
+
+MAXPrCarteira<-matrix(c(empresas,graficomax), nrow = 5, ncol = 2)
+print(MAXPrCarteira)
+```
+
+```{r}
+#Minimos
+MinPetr3<-min(petr3)
+MinVivt4<-min(vivt4)
+MinCsan3<-min(csan3)
+MinEqtl3<-min(eqtl3)
+MinBrml3<-min(brml3)
+
+graficomin<-c(MinPetr3,MinVivt4,MinCsan3,MinEqtl3,MinBrml3)
+barplot(graficomin,col=c(5,2,3,4,7),legend=c("PETR3","VIVT4","CSAN3","EQTL3","BRML3"),main="Minima dos Precos")
+
+MINPrCarteira<-matrix(c(empresas,graficomin), nrow = 5, ncol = 2)
+print(MINPrCarteira)
+```
+
+```{r}
+#Mediana
+MedianaPetr3<-median(petr3)
+MedianaVivt4<-median(vivt4)
+MedianaCsan3<-median(csan3)
+MedianaEqtl3<-median(eqtl3)
+MedianaBrml3<-median(brml3)
+
+graficomediana<-c(MedianaPetr3,MedianaVivt4,MedianaCsan3,MedianaEqtl3,MedianaBrml3)
+barplot(graficomediana,col=c(5,2,3,4,7),legend=c("PETR3","VIVT4","CSAN3","EQTL3","BRML3"),main="Mediana dos Precos")
+
+MedPrCarteira<-matrix(c(empresas,graficomedia), nrow = 5, ncol = 2)
+print(MedPrCarteira)
+```
+
+```{r}
+#Quartil
+quartilPetr3<-quantile(petr3)
+quartilVivt4<-quantile(vivt4)
+quartilCsan3<-quantile(csan3)
+quartilEqtl3<-quantile(eqtl3)
+quartilBrml3<-quantile(brml3)
+quartisCarteira<-cbind(quartilPetr3,quartilVivt4,quartilCsan3,quartilEqtl3,quartilBrml3)
+
+barplot(quartisCarteira[2,], col=c(5,2,3,4,7), legend=c("PETR3", "VIVT4", "CSAN3","EQTL3","BRML3"), main="1° Quartils dos Precos")
+
+barplot(quartisCarteira[4,], col=c(5,2,3,4,7), legend=c("PETR3", "VIVT4", "CSAN3","EQTL3","BRML3"), main="3° Quartils dos Precos")
+
+QuartilPrCarteira<-matrix(c(empresas,quartisCarteira[2,],quartisCarteira[4,]), nrow = 5, ncol = 3)
+print(QuartilPrCarteira)
+
+```
+
+```
+3. Retornos
+Uso de dados em Series temporais
+```
+```{r}
+tspetr3<-ts(petr3)
+tsvivt4<-ts(vivt4)
+tscsan3<-ts(csan3)
+tseqtl3<-ts(eqtl3)
+tsbrml3<-ts(brml3)
+
+plot(cbind(tspetr3,tsvivt4,tscsan3,tseqtl3,tsbrml3),main="Comparativo das Series de Tempo", col=2, xlab="Passagem do tempo", ylab=c("PETR3","VIVT4","CSAN3","EQTL3","BRML3"))
+
+candleChart(PETR3.SA, up.col="green", dn.col="red", theme = "white")
+candleChart(VIVT4.SA, up.col="green", dn.col="red", theme = "white")
+candleChart(CSAN3.SA, up.col="green", dn.col="red", theme = "white")
+candleChart(EQTL3.SA, up.col="green", dn.col="red", theme = "white")
+candleChart(BRML3.SA, up.col="green", dn.col="red", theme = "white")
+
+```
+
+
+```{r}
+#Rendimento - Com a EQTL3
+RtPetr3<-diff(petr3)/lag(petr3,-1)
+RtVivt4<-diff(vivt4)/lag(vivt4,-1)
+RtCsan3<-diff(csan3)/lag(csan3,-1)
+RtEqtl3<-diff(eqtl3)/lag(eqtl3,-1)
+RtBrml3<-diff(brml3)/lag(brml3,-1)
+
+retornosCarteira<-cbind(RtPetr3,RtVivt4,RtCsan3,RtEqtl3,RtBrml3)
+retornosCarteira<-na.omit(retornosCarteira)
+tsretornosCarteira<-ts(retornosCarteira)
+plot(tsretornosCarteira,col="purple")
+
+
+plot(tsretornosCarteira,plot.type="single",col=c(6,4,3,5,7), main="Retornos da Carteira")
+```
+
+```
+A analise continuará sem a EQTL3 pela sua dificuldade de leitura nos dados
+
+4. Analise de mercado
+```
+```{r}
+getSymbols("^BVSP", from=startdate, to=enddate)
+
+ibov<-na.omit(BVSP$BVSP.Adjusted)
+Rtibov<-diff(ibov)/lag(ibov,-1)
+Rtibov<-na.omit(Rtibov)
+RtLivreRisco<-0.02/360 #Tesouro selic 23/02/2020
+```
+```{r}
+RtPetr3<-na.omit(RtPetr3)
+RtVivt4<-na.omit(RtVivt4)
+RtCsan3<-na.omit(RtCsan3)
+RtEqtl3<-na.omit(RtEqtl3)
+RtBrml3<-na.omit(RtBrml3)
+```
+
+```{r}
+betaPetr3<-cov(RtPetr3,Rtibov)/var(Rtibov)
+betaVivt4<-cov(RtVivt4,Rtibov)/var(Rtibov)
+betaCsan3<-cov(RtCsan3,Rtibov)/var(Rtibov)
+betaEqtl3<-cov(RtEqtl3,Rtibov)/var(Rtibov)
+betaBrml3<-cov(RtVivt4,Rtibov)/var(Rtibov)
+
+BETASCarteira<-matrix(c("PETR3","VIVT4","CSAN3","EQTL3","BRML3",betaPetr3,betaVivt4,betaCsan3,betaEqtl3,betaBrml3), nrow = 5, ncol = 2)
+print(BETASCarteira)
+```
+
+```{r}
+#Pequena analise
+lm(RtPetr3~Rtibov)
+lm(RtVivt4~Rtibov)
+lm(RtCsan3~Rtibov)
+lm(RtEqtl3~Rtibov)
+lm(RtBrml3~Rtibov)
+```
+
+```{r}
+plot(c(betaPetr3,betaVivt4,betaCsan3,betaEqtl3,betaBrml3,1,0),
+     c(mean(RtPetr3),mean(RtVivt4),mean(RtCsan3),mean(RtEqtl3),mean(RtBrml3),mean(Rtibov),mean(RtLivreRisco)),
+     main = "Linha de Mercado de Titulo",
+     xlab = "BETA CAMP",
+     ylab = "Retorno Esperado",
+     col=c(1,3,4,5,6,7,8),
+     pch=9)
+abline(a=mean(RtLivreRisco), b=(mean(Rtibov)-mean(RtLivreRisco))/1, col=2)
+
+text(x=betaPetr3, y=mean(RtPetr3), "PETR3")
+text(x=betaVivt4, y=mean(RtVivt4), "VIVT4")
+text(x=betaCsan3, y=mean(RtCsan3), "CSAN3")
+text(x=betaEqtl3, y=mean(RtEqtl3), "EQTL3")
+text(x=betaBrml3, y=mean(RtBrml3), "BRML3")
+text(x=1, y=mean(Rtibov), "IBOV")
+text(x=0, y=mean(RtLivreRisco), "Tesouro Selic")
+
+```
+```
+4.1. Markowitz
+```
+
+```{r}
+retorno_medioCart <- rbind(mean(retornosCarteira[,1]), mean(retornosCarteira[,2]), mean(retornosCarteira[,3]), mean(retornosCarteira[,4]), mean(retornosCarteira[,5]))
+
+ativos <- c("PETR4", "VIVT4", "CSAN3","EQTL3", "BRML3")
+rownames(retorno_medioCart) <- ativos
+
+retorno_medioCart
+
+matriz_cov <- cov(retornosCarteira)
+
+rownames(matriz_cov) <- ativos
+colnames(matriz_cov) <- ativos
+
+short_selling <- FALSE
+```
+
+```{r}
+#Carteira eficiente
+carteira_eficiente <- tangency.portfolio(retorno_medioCart, matriz_cov, RtLivreRisco, shorts = short_selling)
+
+carteira_eficiente
+```
+
+```{r}
+# Calculo da carteira com a menor risco possível
+carteira_min_risco <- globalMin.portfolio(retorno_medioCart, matriz_cov, shorts = short_selling)
+
+carteira_min_risco
+```
+
+```{r}
+# compute portfolio frontier
+fronteira_eficiente <- efficient.frontier(retorno_medioCart, matriz_cov, nport = 40, shorts = short_selling)
+
+fronteira_eficiente
+```
+
+```{r}
+plot(fronteira_eficiente, plot.assets=TRUE, col="blue", pch=16)
+
+points(carteira_min_risco$sd, carteira_min_risco$er, col="green", pch=10, cex=2)
+points(carteira_eficiente$sd, carteira_eficiente$er, col="red", pch=10, cex=2)
+
+text(carteira_min_risco$sd, carteira_min_risco$er, labels="Risco Minimo", pos=2)
+text(carteira_eficiente$sd, carteira_eficiente$er, labels="Carteira Eficiente", pos=2)
+
+tangente <- (carteira_eficiente$er - RtLivreRisco)/carteira_eficiente$sd
+abline(a = RtLivreRisco, b=tangente, col="green", lwd=2)
+```
+
+```
+OBJETIVO 2: Analise pós apresentação da carteira
+```
+```{r}
+newdate<-as.Date("2019-12-01")
+getSymbols(empresas, from=newdate)
+```
+```{r}
+petr3<-na.omit(PETR3.SA$PETR3.SA.Adjusted)
+vivt4<-na.omit(VIVT4.SA$VIVT4.SA.Adjusted)
+csan3<-na.omit(CSAN3.SA$CSAN3.SA.Adjusted)
+eqtl3<-na.omit(EQTL3.SA$EQTL3.SA.Adjusted)
+brml3<-na.omit(BRML3.SA$BRML3.SA.Adjusted)
+
+RtPetr3<-diff(petr3)/lag(petr3,-1)
+RtVivt4<-diff(vivt4)/lag(vivt4,-1)
+RtCsan3<-diff(csan3)/lag(csan3,-1)
+RtEqtl3<-diff(eqtl3)/lag(eqtl3,-1)
+RtBrml3<-diff(brml3)/lag(brml3,-1)
+
+retornosCarteira<-cbind(RtPetr3,RtVivt4,RtCsan3,RtEqtl3,RtBrml3)
+retornosCarteira<-na.omit(retornosCarteira)
+tsretornosCarteira<-ts(retornosCarteira)
+plot(tsretornosCarteira,col="purple")
+
+
+plot(tsretornosCarteira,plot.type="single",col=c(6,4,3,5,7), main="Retornos da Carteira")
+```
+
+```{r}
+tspetr3<-ts(petr3)
+tsvivt4<-ts(vivt4)
+tscsan3<-ts(csan3)
+tseqtl3<-ts(eqtl3)
+tsbrml3<-ts(brml3)
+
+plot(cbind(tspetr3,tsvivt4,tscsan3,tseqtl3,tsbrml3),main="Comparativo das Series de Tempo", col=2, xlab="Passagem do tempo", ylab=c("PETR3","VIVT4","CSAN3","EQTL3","BRML3"))
+
+candleChart(PETR3.SA, up.col="green", dn.col="red", theme = "white")
+candleChart(VIVT4.SA, up.col="green", dn.col="red", theme = "white")
+candleChart(CSAN3.SA, up.col="green", dn.col="red", theme = "white")
+candleChart(EQTL3.SA, up.col="green", dn.col="red", theme = "white")
+candleChart(BRML3.SA, up.col="green", dn.col="red", theme = "white")
+
+```
+
+```{r}
+getSymbols("^BVSP", from=newdate)
+
+ibov<-na.omit(BVSP$BVSP.Adjusted)
+Rtibov<-diff(ibov)/lag(ibov,-1)
+Rtibov<-na.omit(Rtibov)
+RtLivreRisco<-0.02/360 #26/02/2020
+```
+
+```{r}
+RtPetr3<-na.omit(RtPetr3)
+RtVivt4<-na.omit(RtVivt4)
+RtCsan3<-na.omit(RtCsan3)
+RtEqtl3<-na.omit(RtEqtl3)
+RtBrml3<-na.omit(RtBrml3)
+```
+
+```{r}
+betaPetr3<-cov(RtPetr3,Rtibov)/var(Rtibov)
+betaVivt4<-cov(RtVivt4,Rtibov)/var(Rtibov)
+betaCsan3<-cov(RtCsan3,Rtibov)/var(Rtibov)
+betaEqtl3<-cov(RtEqtl3,Rtibov)/var(Rtibov)
+betaBrml3<-cov(RtVivt4,Rtibov)/var(Rtibov)
+
+BETASCarteira<-matrix(c("PETR3","VIVT4","CSAN3","EQTL3","BRML3",betaPetr3,betaVivt4,betaCsan3,betaEqtl3,betaBrml3), nrow = 5, ncol = 2)
+print(BETASCarteira)
+```
+
+```{r}
+plot(c(betaPetr3,betaVivt4,betaCsan3,betaEqtl3,betaBrml3,1,0),
+     c(mean(RtPetr3),mean(RtVivt4),mean(RtCsan3),mean(RtEqtl3),mean(RtBrml3),mean(Rtibov),mean(RtLivreRisco)),
+     main = "Linha de Mercado de Titulo - ADC",
+     xlab = "BETA CAMP",
+     ylab = "Retorno Esperado",
+     col=c(1,3,4,5,6,7,8),
+     pch=9)
+abline(a=mean(RtLivreRisco), b=(mean(Rtibov)-mean(RtLivreRisco))/1, col=2)
+
+text(x=betaPetr3, y=mean(RtPetr3), "PETR3")
+text(x=betaVivt4, y=mean(RtVivt4), "VIVT4")
+text(x=betaCsan3, y=mean(RtCsan3), "CSAN3")
+text(x=betaEqtl3, y=mean(RtEqtl3), "EQTL3")
+text(x=betaBrml3, y=mean(RtBrml3), "BRML3")
+text(x=1, y=mean(Rtibov), "IBOV")
+text(x=0, y=mean(RtLivreRisco), "Tesouro Selic")
+```
+
+```
+Carteira com 20% de participação
+```
+```{r}
+carteira<-merge.xts(RtPetr3,RtVivt4,RtCsan3,RtEqtl3,RtBrml3)
+pesos1<-c(.2,.2,.2,.2,.2)
+```
+```{r}
+carteira_bh1<-Return.portfolio(carteira,
+weights=pesos1,
+verbose=TRUE)
+carteira_bh1
+```
+```{r}
+carteira_rebal1<-Return.portfolio(carteira,
+weights=pesos1,
+rebalance_on="months",
+verbose=TRUE)
+carteira_rebal1
+```
+
+```{r}
+sum(retornosCarteira)
+sum(carteira_bh1$returns)
+```
+
+```{r}
+pesos2<-c(.4,.2,.3,.1,0)
+carteira_bh2<-Return.portfolio(carteira,
+weights=pesos2,
+verbose=TRUE)
+```
+```{r}
+carteira_rebal2<-Return.portfolio(carteira,
+weights=pesos2,
+rebalance_on="months",
+verbose=TRUE)
+```
+
+```{r}
+sum(carteira_bh2$returns)
+sum(Rtibov)
+```
+
